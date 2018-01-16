@@ -2,7 +2,7 @@
 
 More fun for your viewers!
 
-Made by [@GyooRunsStuff](https://twitter.com/GyooRunsStuff) - updated by [@Aginsun] (https://twitter.com/aginsun)
+Made by [@GyooRunsStuff](https://twitter.com/GyooRunsStuff) - updated by [@Aginsun](https://twitter.com/aginsun)
 
 Many thanks to [@CryZe107](https://twitter.com/CryZe107) and [@0x0ade](https://twitter.com/0x0ade)!
 
