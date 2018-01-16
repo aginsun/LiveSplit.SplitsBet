@@ -18,6 +18,7 @@ using System.Windows.Forms;
 using System.ComponentModel;
 using LiveSplit.Model.Comparisons;
 using LiveSplit.UI;
+using System.Collections;
 
 namespace LiveSplit.SplitsBet
 {
@@ -35,6 +36,7 @@ namespace LiveSplit.SplitsBet
 
         //Bets : Array of dictionaries that contains all the bets from all the players for every segment. The array's length is the number of segments, and the dictionary contains the name of the player as a key, and a tuple with the time of the bet and the score coefficient
         private Dictionary<string, Tuple<TimeSpan, double>>[] Bets { get; set; }
+        private Dictionary<string, Tuple<int, string>> Winners { get; set; }
         private Dictionary<string, TimeSpan> SpecialBets { get; set; }
         private Dictionary<string, int>[] Scores { get; set; }
         private Time[] SegmentBeginning { get; set; }
@@ -74,6 +76,7 @@ namespace LiveSplit.SplitsBet
             Commands.Add("score", Score);
             Commands.Add("highscore", Highscore);
             Commands.Add("specialbet", SpecialBet);
+            Commands.Add("winners", CheckWinners);
             Commands.Add("stop", DisableBets);
 
             /*Setting Livesplit events*/
@@ -203,10 +206,13 @@ namespace LiveSplit.SplitsBet
                         {
                             delta = entry.Value - Scores[BetIndex - 1][entry.Key];
                         }
+                        var time = Winners[entry.Key].Item2;
                         if (!Settings.SingleLineScores)
-                            SendMessage(entry.Key + ": " + entry.Value + (delta != 0 ? (" (" + (delta < 0 ? "-" : "+") + delta + ")") : ""));
+                        {
+                            SendMessage(entry.Key + ": " + entry.Value + " - " + time + (delta != 0 ? (" (" + (delta < 0 ? "-" : "+") + delta + ")") : ""));
+                        }
                         else
-                            singleLine += entry.Key + ": " + entry.Value + (delta != 0 ? (" (" + (delta < 0 ? "-" : "+") + delta + ")") : "") + " || ";
+                            singleLine += entry.Key + ": " + entry.Value + " - " + time + (delta != 0 ? (" (" + (delta < 0 ? "-" : "+") + delta + ")") : "") + " || ";
                         if (++scoresShown >= Settings.NbScores) break;
                     }
                     if (Settings.SingleLineScores) SendMessage(singleLine.Substring(0, singleLine.Length - 4));
@@ -444,7 +450,7 @@ namespace LiveSplit.SplitsBet
                 Commands.Add("score", Score);
                 Commands.Add("highscore", Highscore);
                 Commands.Add("specialbet", SpecialBet);
-
+                Commands.Add("winners", CheckWinners);
                 Commands.Remove("start");
                 Commands.Add("stop", DisableBets);
 
@@ -485,7 +491,7 @@ namespace LiveSplit.SplitsBet
                 Commands.Remove("score");
                 Commands.Remove("highscore");
                 Commands.Remove("specialbet");
-
+                Commands.Remove("winners");
                 Commands.Remove("stop");
                 Commands.Add("start", EnableBets);
 
@@ -583,6 +589,20 @@ namespace LiveSplit.SplitsBet
             SendMessage("LiveSplit version " + SplitsBetFactory.VersionString + (SplitsBetFactory.VersionPostfix ?? ""));
         }
 
+        private void CheckWinners(TwitchChat.User user, string argument)
+        {
+            if (user.Badges.HasFlag(TwitchChat.ChatBadges.Broadcaster) || (Settings.AllowMods && user.Badges.HasFlag(TwitchChat.ChatBadges.Moderator)))
+            {
+                List<KeyValuePair<string, Tuple<int, string>>> list;
+                list = Winners.OrderByDescending(kvp => kvp.Value.Item1).ToList();
+                SendMessage("Top 5 Winners!");
+                for (int i = 0; i < 5; i++)
+                {
+                    SendMessage(list[i].Key + ": " + list[i].Value.Item1 + " - " + list[i].Value.Item2);
+                }
+            }
+        }
+
         #endregion
 
         #region Events
@@ -638,6 +658,7 @@ namespace LiveSplit.SplitsBet
                 Thread.Sleep(TimeSpan.FromSeconds(Settings.Delay));
                 try
                 {
+                    Winners = new Dictionary<string, Tuple<int, string>>();
                     //TODO Hide the "Time for this split was..." message if the segment time is <= 0 (yes it can happen)
                     var segment = State.CurrentTime - SegmentBeginning[BetIndex];
                     //Add delay time to the last split
@@ -657,6 +678,10 @@ namespace LiveSplit.SplitsBet
                             Scores[BetIndex][entry.Key] += (int)score;
                         }
                         else Scores[BetIndex].Add(entry.Key, (int)score);
+                        var timeformat = new ShortTimeFormatter();
+                        var time = entry.Value.Item1;
+                        var formattedTime = timeFormatter.Format(time);
+                        Winners.Add(entry.Key, new Tuple<int, string>((int)score, formattedTime));
                     }
                     ShowScore();
                     if (++BetIndex < Scores.Count())
