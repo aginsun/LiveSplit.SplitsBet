@@ -78,6 +78,7 @@ namespace LiveSplit.SplitsBet
             Commands.Add("specialbet", SpecialBet);
             Commands.Add("winners", CheckWinners);
             Commands.Add("stop", DisableBets);
+            Commands.Add("betcount", BetCounter);
 
             /*Setting Livesplit events*/
             State.OnStart += StartBets;
@@ -250,8 +251,15 @@ namespace LiveSplit.SplitsBet
 
         private int getScore(KeyValuePair<string, Tuple<TimeSpan, double>> entry, TimeSpan? segmentTimeSpan)
         {
-            double percentage = (Math.Floor(segmentTimeSpan.Value.TotalSeconds) - Math.Floor(entry.Value.Item1.TotalSeconds)) / Math.Floor(segmentTimeSpan.Value.TotalSeconds);
-            return (int)Math.Floor(entry.Value.Item2 * Math.Floor(segmentTimeSpan.Value.TotalSeconds) * Math.Exp(-Math.Floor(segmentTimeSpan.Value.TotalSeconds)*(Math.Pow(percentage, 2))));
+            double percentage = (Math.Floor(segmentTimeSpan.Value.TotalMilliseconds) - Math.Floor(entry.Value.Item1.TotalMilliseconds)) / Math.Floor(segmentTimeSpan.Value.TotalMilliseconds);
+            double maxScore = segmentTimeSpan.Value.TotalMilliseconds;
+            double playerScore = entry.Value.Item1.TotalMilliseconds;
+            if (percentage < 0)
+                percentage *= -1;
+            if (maxScore < playerScore)
+                playerScore = maxScore - (playerScore - maxScore);
+            playerScore = playerScore / (percentage + 1);
+            return (int)Math.Round((playerScore * 1000000) / maxScore);
         }
 
         #endregion
@@ -451,6 +459,7 @@ namespace LiveSplit.SplitsBet
                 Commands.Add("highscore", Highscore);
                 Commands.Add("specialbet", SpecialBet);
                 Commands.Add("winners", CheckWinners);
+                Commands.Add("betcount", BetCounter);
                 Commands.Remove("start");
                 Commands.Add("stop", DisableBets);
 
@@ -504,6 +513,14 @@ namespace LiveSplit.SplitsBet
                 SendMessage(Settings.msgDisable);
             }
             else SendMessage("You're not allowed to stop the bets!");
+        }
+
+        private void BetCounter(TwitchChat.User user, string arg2)
+        {
+            if (user.Badges.HasFlag(TwitchChat.ChatBadges.Broadcaster) || user.Badges.HasFlag(TwitchChat.ChatBadges.Moderator) || user.Name == "aginsun")
+            {
+                SendMessage("Amount of people that have placed a bet: " + Bets[BetIndex].Count());
+            }
         }
 
         private void SpecialBet(TwitchChat.User user, string argument)
